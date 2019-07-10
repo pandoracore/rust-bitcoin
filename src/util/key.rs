@@ -173,6 +173,7 @@ impl PrivateKey {
         let mut ret = [0; 34];
         ret[0] = match self.network {
             Network::Bitcoin => 128,
+            Network::Signet => 217,
             Network::Testnet | Network::Regtest => 239,
         };
         ret[1..33].copy_from_slice(&self.key[..]);
@@ -205,6 +206,7 @@ impl PrivateKey {
 
         let network = match data[0] {
             128 => Network::Bitcoin,
+            217 => Network::Signet,
             239 => Network::Testnet,
             x   => { return Err(Error::Base58(base58::Error::InvalidVersion(vec![x]))); }
         };
