@@ -22,6 +22,7 @@ use consensus::encode::{Encodable, Decodable, Error};
 use hashes::{sha256, sha256d, hash160, Hash};
 use hashes::hex::{ToHex, FromHex};
 
+#[macro_export]
 macro_rules! impl_hashencode {
     ($hashtype:ident) => {
         impl Encodable for $hashtype {

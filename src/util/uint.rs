@@ -23,6 +23,7 @@ use std::fmt;
 use consensus::encode;
 use util::BitArray;
 
+#[macro_export]
 macro_rules! construct_uint {
     ($name:ident, $n_words:expr) => (
         /// Little-endian large integer type
