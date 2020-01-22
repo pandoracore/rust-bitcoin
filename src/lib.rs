@@ -78,6 +78,7 @@ pub mod util;
 pub mod consensus;
 // Do not remove: required in order to get hash types implementation macros to work correctly
 #[allow(unused_imports)]
+#[macro_use]
 pub mod hash_types;
 
 pub use hash_types::*;
