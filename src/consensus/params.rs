@@ -36,10 +36,10 @@ const MAX_BITS_TESTNET: Uint256 = Uint256([
 ]);
 /// Lowest possible difficulty for Signet.
 const MAX_BITS_SIGNET: Uint256 = Uint256([
-    0x62a429192f9e8ce5u64,
-    0xc63b5f100aa5d8dfu64,
-    0x3c82faa55d83e40au64,
-    0x00002adc28cf53b6u64,
+    0x0000000000000000000,
+    0x0000000000000000000,
+    0x0000000000000000000,
+    0x00002adc28000000000,
 ]);
 /// Lowest possible difficulty for Regtest.
 const MAX_BITS_REGTEST: Uint256 = Uint256([
