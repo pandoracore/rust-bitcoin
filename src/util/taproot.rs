@@ -14,7 +14,7 @@
 //! Taproot
 //!
 
-use hashes::{sha256, sha256t};
+use hashes::sha256t;
 
 /// The SHA-256 midstate value for the TapLeaf hash.
 const MIDSTATE_TAPLEAF: [u8; 32] = [
@@ -48,19 +48,17 @@ const MIDSTATE_TAPSIGHASH: [u8; 32] = [
 /// It creates two public types:
 /// - a sha246t::Tag struct,
 /// - a sha256t::Hash type alias.
+#[macro_export]
 macro_rules! tagged_hash {
 	($name:ident, $tag:ident, $hash:ident, $midstate:ident) => {
 		/// The `$name` hash tag.
 		#[derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Default, Hash)]
 		pub struct $tag;
 
-		impl sha256t::Tag for $tag {
-			fn engine() -> sha256::HashEngine {
-				//TODO(stevenroose) optimize this when following two PRs are merged:
-				// https://github.com/rust-bitcoin/bitcoin_hashes/pull/61
-				// https://github.com/rust-bitcoin/bitcoin_hashes/pull/62
-				let midstate = sha256::Midstate::from_inner($midstate.clone());
-				sha256::HashEngine::from_midstate(midstate, 64)
+		impl $crate::hashes::sha256t::Tag for $tag {
+			fn engine() -> $crate::hashes::sha256::HashEngine {
+				let midstate = $crate::hashes::sha256::Midstate::from_inner($midstate);
+				$crate::hashes::sha256::HashEngine::from_midstate(midstate, 64)
 			}
 		}
 
