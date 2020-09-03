@@ -29,7 +29,7 @@ use std::{error, fmt, io};
 
 #[cfg(feature = "serde")] use serde;
 
-use hash_types::{ScriptHash, WScriptHash};
+use hash_types::{PubkeyHash, WPubkeyHash, ScriptHash, WScriptHash};
 use blockdata::opcodes;
 use consensus::{encode, Decodable, Encodable};
 use hashes::Hash;
@@ -216,6 +216,65 @@ impl Script {
     /// Creates a new empty script
     pub fn new() -> Script { Script(vec![].into_boxed_slice()) }
 
+    /// Generates P2PK-type of scriptPubkey
+    pub fn with_pk(pubkey: &PublicKey) -> Script {
+        Builder::new()
+            .push_key(pubkey)
+            .push_opcode(opcodes::all::OP_CHECKSIG)
+            .into_script()
+    }
+
+    /// Generates P2PKH-type of scriptPubkey
+    pub fn with_pkh(pubkey_hash: &PubkeyHash) -> Script {
+        Builder::new()
+            .push_opcode(opcodes::all::OP_DUP)
+            .push_opcode(opcodes::all::OP_HASH160)
+            .push_slice(&pubkey_hash[..])
+            .push_opcode(opcodes::all::OP_EQUALVERIFY)
+            .push_opcode(opcodes::all::OP_CHECKSIG)
+            .into_script()
+    }
+
+    /// Generates P2SH-type of scriptPubkey with a given hash of the redeem script
+    pub fn with_sh(script_hash: &ScriptHash) -> Script {
+        Builder::new()
+            .push_opcode(opcodes::all::OP_HASH160)
+            .push_slice(&script_hash[..])
+            .push_opcode(opcodes::all::OP_EQUAL)
+            .into_script()
+    }
+
+    /// Generates P2WPKH-type of scriptPubkey
+    pub fn with_v0_wpkh(pubkey_hash: &WPubkeyHash) -> Script {
+        Script::with_witness_program(::bech32::u5::try_from_u8(0).unwrap(), &pubkey_hash.to_vec())
+    }
+
+    /// Generates P2WSH-type of scriptPubkey with a given hash of the redeem script
+    pub fn with_v0_wsh(script_hash: &WScriptHash) -> Script {
+        Script::with_witness_program(::bech32::u5::try_from_u8(0).unwrap(), &script_hash.to_vec())
+    }
+
+    /// Generates P2WSH-type of scriptPubkey with a given hash of the redeem script
+    pub fn with_witness_program(ver: ::bech32::u5, program: &Vec<u8>) -> Script {
+        let mut verop = ver.to_u8();
+        assert!(verop <= 16);
+        if verop > 0 {
+            verop = 0x50 + verop;
+        }
+        Builder::new()
+            .push_opcode(verop.into())
+            .push_slice(&program)
+            .into_script()
+    }
+
+    /// Generates OP_RETURN-type of scriptPubkey for a given data
+    pub fn with_op_return(data: &Vec<u8>) -> Self {
+        Builder::new()
+            .push_opcode(opcodes::all::OP_RETURN)
+            .push_slice(&data)
+            .into_script()
+    }
+
     /// Returns 160-bit hash of the script
     pub fn script_hash(&self) -> ScriptHash {
         ScriptHash::hash(&self.as_bytes())
@@ -243,18 +302,13 @@ impl Script {
 
     /// Compute the P2SH output corresponding to this redeem script
     pub fn to_p2sh(&self) -> Script {
-        Builder::new().push_opcode(opcodes::all::OP_HASH160)
-                      .push_slice(&self.script_hash()[..])
-                      .push_opcode(opcodes::all::OP_EQUAL)
-                      .into_script()
+        Script::with_sh(&self.script_hash())
     }
 
     /// Compute the P2WSH output corresponding to this witnessScript (aka the "witness redeem
     /// script")
     pub fn to_v0_p2wsh(&self) -> Script {
-        Builder::new().push_int(0)
-                      .push_slice(&self.wscript_hash()[..])
-                      .into_script()
+        Script::with_v0_wsh(&self.wscript_hash())
     }
 
     /// Checks whether a script pubkey is a p2sh output
@@ -566,7 +620,7 @@ impl<'a> Iterator for Instructions<'a> {
 
 impl Builder {
     /// Creates a new empty script
-    pub fn new() -> Builder {
+    pub fn new() -> Self {
         Builder(vec![], None)
     }
 
@@ -772,15 +826,15 @@ impl Decodable for Script {
 #[cfg(test)]
 mod test {
     use std::str::FromStr;
-    use hashes::hex::FromHex;
 
     use super::*;
     use super::build_scriptint;
 
-    use hashes::hex::ToHex;
+    use hashes::hex::{FromHex, ToHex};
     use consensus::encode::{deserialize, serialize};
     use blockdata::opcodes;
     use util::key::PublicKey;
+    use util::psbt::serialize::Serialize;
 
     #[test]
     fn script() {
@@ -828,6 +882,38 @@ mod test {
                                    .push_opcode(opcodes::all::OP_CHECKSIG)
                                    .into_script();
         assert_eq!(&format!("{:x}", script), "76a91416e1ae70ff0fa102905d4af297f6912bda6cce1988ac");
+    }
+
+    #[test]
+    fn script_generators() {
+        let pubkey = PublicKey::from_str("0234e6a79c5359c613762d537e0e19d86c77c1666d8c9ab050f23acd198e97f93e").unwrap();
+        assert!(Script::with_pk(&pubkey).is_p2pk());
+
+        let pubkey_hash = PubkeyHash::hash(&pubkey.serialize());
+        assert!(Script::with_pkh(&pubkey_hash).is_p2pkh());
+
+        let wpubkey_hash = WPubkeyHash::hash(&pubkey.serialize());
+        assert!(Script::with_v0_wpkh(&wpubkey_hash).is_v0_p2wpkh());
+
+        let script = Builder::new().push_opcode(opcodes::all::OP_NUMEQUAL)
+                                   .push_verify()
+                                   .into_script();
+        let script_hash = ScriptHash::hash(&script.serialize());
+        let p2sh = Script::with_sh(&script_hash);
+        assert!(p2sh.is_p2sh());
+        assert_eq!(script.to_p2sh(), p2sh);
+
+        let wscript_hash = WScriptHash::hash(&script.serialize());
+        let p2wsh = Script::with_v0_wsh(&wscript_hash);
+        assert!(p2wsh.is_v0_p2wsh());
+        assert_eq!(script.to_v0_p2wsh(), p2wsh);
+
+        // Test data are taken from the second output of
+        // 2ccb3a1f745eb4eefcf29391460250adda5fab78aaddb902d25d3cd97d9d8e61 transaction
+        let data = Vec::<u8>::from_hex("aa21a9ed20280f53f2d21663cac89e6bd2ad19edbabb048cda08e73ed19e9268d0afea2a").unwrap();
+        let op_return = Script::with_op_return(&data);
+        assert!(op_return.is_op_return());
+        assert_eq!(op_return.to_hex(), "6a24aa21a9ed20280f53f2d21663cac89e6bd2ad19edbabb048cda08e73ed19e9268d0afea2a");
     }
 
     #[test]
