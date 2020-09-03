@@ -50,8 +50,8 @@ const MIDSTATE_TAPSIGHASH: [u8; 32] = [
 /// - a sha256t::Hash type alias.
 #[macro_export]
 macro_rules! tagged_hash {
-	($name:ident, $tag:ident, $hash:ident, $midstate:ident) => {
-		/// The `$name` hash tag.
+	($hash:ident, $tag:ident, $midstate:ident, $docs:meta) => {
+		/// The `tag` hash tag used by `$hash`.
 		#[derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Default, Hash)]
 		pub struct $tag;
 
@@ -62,15 +62,15 @@ macro_rules! tagged_hash {
 			}
 		}
 
-		/// A hash tagged with `$name`.
+		#[$docs]
 		pub type $hash = sha256t::Hash<$tag>;
 	};
 }
 
-tagged_hash!(TapLeaf, TapLeafTag, TapLeafHash, MIDSTATE_TAPLEAF);
-tagged_hash!(TapBranch, TapBranchTag, TapBranchHash, MIDSTATE_TAPBRANCH);
-tagged_hash!(TapTweak, TapTweakTag, TapTweakHash, MIDSTATE_TAPTWEAK);
-tagged_hash!(TapSighash, TapSighashTag, TapSighashHash, MIDSTATE_TAPSIGHASH);
+tagged_hash!(TapLeafHash, TapLeafTag, MIDSTATE_TAPLEAF, doc="Taproot-tagged hash for tapscript Merkle tree leaf");
+tagged_hash!(TapBranchHash, TapBranchTag, MIDSTATE_TAPBRANCH, doc="Taproot-tagged hash for tapscript Merkle tree branch");
+tagged_hash!(TapTweakHash, TapTweakTag, MIDSTATE_TAPTWEAK, doc="Taproot-tagged hash for public key tweak");
+tagged_hash!(TapSighashHash, TapSighashTag, MIDSTATE_TAPSIGHASH, doc="Taproot-tagged hash for signature");
 
 #[cfg(test)]
 mod test {
